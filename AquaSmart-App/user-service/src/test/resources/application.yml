@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: user-service-test
+  
+  datasource:
+    url: jdbc:h2:mem:user-service-test-db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+  
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  cloud:
+    config:
+      enabled: false
+      discovery:
+        enabled: false
+
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+
+# JWT Configuration for tests
+jwt:
+  secret: TestSecretKeyForJWTTokenGenerationAndValidation2024TestSecretKeyForJWTTokenGenerationAndValidation2024
+  expiration: 86400000 
+  refresh-expiration: 604800000
+
+logging:
+  level:
+    root: INFO
+    com.aquasmart: DEBUG
