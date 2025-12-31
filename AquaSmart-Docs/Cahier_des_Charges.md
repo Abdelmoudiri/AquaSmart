@@ -1,6 +1,6 @@
 ---
 <p align="center">
-  <img src="https://www.simplon.co/images/logo-simplon.png" alt="SIMPLON" height="80"/>
+  <img src="https://becode.org/wp-content/uploads/2023/10/simplon.png" alt="SIMPLON" height="80"/>
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
   <img src="https://youcode.ma/assets/img/logo.png" alt="YOUCODE" height="80"/>
 </p>
