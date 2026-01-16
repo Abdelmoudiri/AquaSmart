@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  frontend:
+    build: ./frontend
+    container_name: frontend-service
+    ports:
+      - "4200:80"
+    networks:
+      - aquasmart-network
+
+  discovery-service:
+    build: ./discovery-service
+    container_name: discovery-service
+    ports:
+      - "8761:8761"
+    environment:
+      - JAVA_TOOL_OPTIONS=-Xmx256m
+    networks:
+      - aquasmart-network
+
+  gateway:
+    build: ./gateway
+    container_name: gateway-service
+    ports:
+      - "8080:8080"
+    environment:
+      - JAVA_TOOL_OPTIONS=-Xmx512m
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
+    depends_on:
+      - discovery-service
+    networks:
+      - aquasmart-network
+
+  user-service:
+    build: ./user-service
+    container_name: user-service
+    restart: unless-stopped
+    ports:
+      - "8085:8081"
+    environment:
+      - DB_URL=jdbc:mysql://aquasmart-mysql-new:3306/aquasmart_users?createDatabaseIfNotExist=true&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
+      - DB_USERNAME=root
+      - DB_PASSWORD=root
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
+      - EUREKA_ENABLED=true
+      - JAVA_TOOL_OPTIONS=-Xmx512m
+      - LOGGING_LEVEL_COM_ZAXXER_HIKARI=DEBUG
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_JPA_SHOW_SQL=true
+    depends_on:
+      mysqldb:
+        condition: service_healthy
+      discovery-service:
+        condition: service_started
+    networks:
+      - aquasmart-network
+
+  mysqldb:
+    image: mysql:8.0
+    container_name: aquasmart-mysql-new
+    command: --default-authentication-plugin=mysql_native_password --skip-name-resolve
+    ports:
+      - "3308:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=aquasmart_users
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      timeout: 20s
+      retries: 10
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - aquasmart-network
+
+networks:
+  aquasmart-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
