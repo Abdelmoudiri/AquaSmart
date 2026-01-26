@@ -21,40 +21,61 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(EmailAlreadyExistsException.class)
     public ResponseEntity<ErrorResponse> handleEmailAlreadyExists(
-            EmailAlreadyExistsException ex, 
+            EmailAlreadyExistsException ex,
             HttpServletRequest request) {
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.CONFLICT.value(),
                 "Email Already Exists",
                 ex.getMessage(),
-                request.getRequestURI()
-        );
+                request.getRequestURI());
         return new ResponseEntity<>(error, HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(UserNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleUserNotFound(
-            UserNotFoundException ex, 
+            UserNotFoundException ex,
             HttpServletRequest request) {
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.NOT_FOUND.value(),
                 "User Not Found",
                 ex.getMessage(),
-                request.getRequestURI()
-        );
+                request.getRequestURI());
         return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
     }
 
-    @ExceptionHandler({BadCredentialsException.class, UsernameNotFoundException.class})
+    @ExceptionHandler(TokenRefreshException.class)
+    public ResponseEntity<ErrorResponse> handleTokenRefreshException(
+            TokenRefreshException ex,
+            HttpServletRequest request) {
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.FORBIDDEN.value(),
+                "Token Refresh Error",
+                ex.getMessage(),
+                request.getRequestURI());
+        return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(PasswordResetException.class)
+    public ResponseEntity<ErrorResponse> handlePasswordResetException(
+            PasswordResetException ex,
+            HttpServletRequest request) {
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Password Reset Error",
+                ex.getMessage(),
+                request.getRequestURI());
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler({ BadCredentialsException.class, UsernameNotFoundException.class })
     public ResponseEntity<ErrorResponse> handleBadCredentials(
-            Exception ex, 
+            Exception ex,
             HttpServletRequest request) {
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.UNAUTHORIZED.value(),
                 "Authentication Failed",
                 "Email ou mot de passe incorrect",
-                request.getRequestURI()
-        );
+                request.getRequestURI());
         return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
     }
 
@@ -72,14 +93,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(
-            Exception ex, 
+            Exception ex,
             HttpServletRequest request) {
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 "Internal Server Error",
                 ex.getMessage(),
-                request.getRequestURI()
-        );
+                request.getRequestURI());
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

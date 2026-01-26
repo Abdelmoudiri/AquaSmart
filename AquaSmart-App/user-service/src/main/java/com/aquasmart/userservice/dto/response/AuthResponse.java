@@ -18,6 +18,7 @@ import java.util.Set;
 public class AuthResponse {
 
     private String token;
+    private String refreshToken;
     private String type = "Bearer";
     private String userId;
     private String email;
@@ -26,9 +27,10 @@ public class AuthResponse {
     private Set<Role> roles;
     private Long expiresIn;
 
-    public AuthResponse(String token, String userId, String email, String firstName, 
-                       String lastName, Set<Role> roles, Long expiresIn) {
+    public AuthResponse(String token, String refreshToken, String userId, String email,
+            String firstName, String lastName, Set<Role> roles, Long expiresIn) {
         this.token = token;
+        this.refreshToken = refreshToken;
         this.userId = userId;
         this.email = email;
         this.firstName = firstName;

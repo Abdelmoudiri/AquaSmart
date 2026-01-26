@@ -4,6 +4,7 @@ import com.aquasmart.userservice.dto.request.LoginRequest;
 import com.aquasmart.userservice.dto.request.RegisterRequest;
 import com.aquasmart.userservice.dto.response.AuthResponse;
 import com.aquasmart.userservice.exception.EmailAlreadyExistsException;
+import com.aquasmart.userservice.model.RefreshToken;
 import com.aquasmart.userservice.model.User;
 import com.aquasmart.userservice.model.enums.Role;
 import com.aquasmart.userservice.repository.UserRepository;
@@ -33,6 +34,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
+    private final RefreshTokenService refreshTokenService;
 
     /**
      * Inscription d'un nouveau utilisateur
@@ -69,18 +71,19 @@ public class AuthService {
         User savedUser = userRepository.save(user);
         log.info("Utilisateur créé avec succès: {}", savedUser.getEmail());
 
-        // Générer le token JWT
-        String token = generateToken(savedUser);
+        // Générer les tokens
+        String accessToken = generateToken(savedUser);
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(savedUser.getId());
 
         return new AuthResponse(
-                token,
+                accessToken,
+                refreshToken.getToken(),
                 savedUser.getId(),
                 savedUser.getEmail(),
                 savedUser.getFirstName(),
                 savedUser.getLastName(),
                 savedUser.getRoles(),
-                jwtUtil.getExpiration()
-        );
+                jwtUtil.getExpiration());
     }
 
     /**
@@ -93,9 +96,7 @@ public class AuthService {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail(),
-                        request.getPassword()
-                )
-        );
+                        request.getPassword()));
 
         // Récupérer l'utilisateur
         User user = userRepository.findByEmail(request.getEmail())
@@ -108,18 +109,54 @@ public class AuthService {
 
         log.info("Connexion réussie pour: {}", user.getEmail());
 
-        // Générer le token JWT
-        String token = generateToken(user);
+        // Générer les tokens
+        String accessToken = generateToken(user);
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId());
 
         return new AuthResponse(
-                token,
+                accessToken,
+                refreshToken.getToken(),
                 user.getId(),
                 user.getEmail(),
                 user.getFirstName(),
                 user.getLastName(),
                 user.getRoles(),
-                jwtUtil.getExpiration()
-        );
+                jwtUtil.getExpiration());
+    }
+
+    /**
+     * Rafraîchit le token d'accès à partir d'un refresh token valide
+     */
+    public AuthResponse refreshAccessToken(String refreshTokenStr) {
+        RefreshToken refreshToken = refreshTokenService.findByToken(refreshTokenStr)
+                .orElseThrow(() -> new RuntimeException("Refresh token invalide"));
+
+        refreshTokenService.verifyExpiration(refreshToken);
+
+        User user = userRepository.findById(refreshToken.getUserId())
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        String accessToken = generateToken(user);
+
+        log.info("Token rafraîchi pour: {}", user.getEmail());
+
+        return new AuthResponse(
+                accessToken,
+                refreshToken.getToken(),
+                user.getId(),
+                user.getEmail(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getRoles(),
+                jwtUtil.getExpiration());
+    }
+
+    /**
+     * Déconnexion - supprime le refresh token
+     */
+    public void logout(String userId) {
+        refreshTokenService.deleteByUserId(userId);
+        log.info("Utilisateur déconnecté: {}", userId);
     }
 
     /**
@@ -130,7 +167,7 @@ public class AuthService {
         extraClaims.put("roles", user.getRoles());
         extraClaims.put("firstName", user.getFirstName());
         extraClaims.put("lastName", user.getLastName());
-        
+
         return jwtUtil.generateToken(user.getEmail(), user.getId(), extraClaims);
     }
 
