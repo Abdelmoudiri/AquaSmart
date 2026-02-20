@@ -1,0 +1,68 @@
+server:
+  port: 8087
+
+spring:
+  application:
+    name: alert-service
+  datasource:
+    url: jdbc:mysql://localhost:3306/aquasmart_alerts?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:your-email@gmail.com}
+    password: ${MAIL_PASSWORD:your-app-password}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    fetch-registry: true
+    register-with-eureka: true
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# Alert thresholds
+alert:
+  thresholds:
+    soil-moisture-low: 25.0
+    soil-moisture-high: 85.0
+    temperature-low: 5.0
+    temperature-high: 40.0
+    humidity-low: 20.0
+    humidity-high: 90.0
+    water-usage-daily-max: 10000.0
+  notification:
+    email-enabled: true
+    sms-enabled: false
+
+logging:
+  level:
+    com.aquasmart.alertservice: DEBUG
+    org.springframework.web: INFO
