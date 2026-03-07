@@ -7,11 +7,14 @@ const API_URL = 'http://localhost:8080/api/users/auth'; // Gateway URL
 
 export interface AuthResponse {
     token: string;
+    refreshToken?: string;
     type: string;
-    id: number;
-    username: string;
+    userId: string;
     email: string;
+    firstName: string;
+    lastName: string;
     roles: string[];
+    expiresIn?: number;
 }
 
 @Injectable({
@@ -35,6 +38,11 @@ export class AuthService {
             this.currentUserSubject.next(user);
             this.isAuthenticated.set(true);
         }
+    }
+
+    // Méthode pour obtenir l'utilisateur courant de façon synchrone
+    currentUser(): AuthResponse | null {
+        return this.currentUserSubject.getValue();
     }
 
     register(userData: any): Observable<any> {
@@ -61,5 +69,26 @@ export class AuthService {
 
     getToken(): string | null {
         return localStorage.getItem('token');
+    }
+
+    // Vérifier si l'utilisateur est admin
+    isAdmin(): boolean {
+        const user = this.currentUser();
+        return user?.roles?.includes('ROLE_ADMIN') || user?.roles?.includes('ADMIN') || false;
+    }
+
+    // Vérifier si l'utilisateur est agriculteur
+    isFarmer(): boolean {
+        const user = this.currentUser();
+        return user?.roles?.includes('ROLE_FARMER') || user?.roles?.includes('ROLE_USER') || user?.roles?.includes('FARMER') || false;
+    }
+
+    // Obtenir le rôle principal
+    getPrimaryRole(): string {
+        const user = this.currentUser();
+        if (!user?.roles?.length) return 'Utilisateur';
+        if (this.isAdmin()) return 'Admin';
+        if (this.isFarmer()) return 'Agriculteur';
+        return 'Utilisateur';
     }
 }
