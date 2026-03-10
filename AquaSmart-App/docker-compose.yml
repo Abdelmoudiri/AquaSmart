@@ -16,6 +16,12 @@ services:
       - "8761:8761"
     environment:
       - JAVA_TOOL_OPTIONS=-Xmx256m
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     networks:
       - aquasmart-network
 
@@ -28,7 +34,8 @@ services:
       - JAVA_TOOL_OPTIONS=-Xmx512m
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
     depends_on:
-      - discovery-service
+      discovery-service:
+        condition: service_healthy
     networks:
       - aquasmart-network
 
@@ -52,7 +59,92 @@ services:
       mysqldb:
         condition: service_healthy
       discovery-service:
+        condition: service_healthy
+    networks:
+      - aquasmart-network
+
+  farm-service:
+    build: ./farm-service
+    container_name: farm-service
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://aquasmart-mysql-new:3306/aquasmart_farms?createDatabaseIfNotExist=true&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
+      - EUREKA_ENABLED=true
+      - JAVA_TOOL_OPTIONS=-Xmx512m
+    depends_on:
+      mysqldb:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+    networks:
+      - aquasmart-network
+
+  weather-service:
+    build: ./weather-service
+    container_name: weather-service
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      - OPENWEATHERMAP_API_KEY=${OPENWEATHERMAP_API_KEY}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
+      - EUREKA_ENABLED=true
+      - SPRING_DATA_REDIS_HOST=redis
+      - JAVA_TOOL_OPTIONS=-Xmx256m
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+      redis:
         condition: service_started
+    networks:
+      - aquasmart-network
+
+  irrigation-service:
+    build: ./irrigation-service
+    container_name: irrigation-service
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://aquasmart-mysql-new:3306/aquasmart_irrigation?createDatabaseIfNotExist=true&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
+      - EUREKA_ENABLED=true
+      - JAVA_TOOL_OPTIONS=-Xmx512m
+    depends_on:
+      mysqldb:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+    networks:
+      - aquasmart-network
+
+  alert-service:
+    build: ./alert-service
+    container_name: alert-service
+    restart: unless-stopped
+    ports:
+      - "8087:8087"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://aquasmart-mysql-new:3306/aquasmart_alerts?createDatabaseIfNotExist=true&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
+      - EUREKA_ENABLED=true
+      - MAIL_USERNAME=${MAIL_USERNAME:-noreply@aquasmart.com}
+      - MAIL_PASSWORD=${MAIL_PASSWORD:-password}
+      - JAVA_TOOL_OPTIONS=-Xmx512m
+    depends_on:
+      mysqldb:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
     networks:
       - aquasmart-network
 
@@ -74,9 +166,20 @@ services:
     networks:
       - aquasmart-network
 
+  redis:
+    image: redis:7-alpine
+    container_name: aquasmart-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - aquasmart-network
+
 networks:
   aquasmart-network:
     driver: bridge
 
 volumes:
   mysql_data:
+  redis_data:
