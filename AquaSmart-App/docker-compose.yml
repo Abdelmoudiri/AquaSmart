@@ -114,6 +114,10 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:mysql://aquasmart-mysql-new:3306/aquasmart_irrigation?createDatabaseIfNotExist=true&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
       - SPRING_DATASOURCE_USERNAME=root
       - SPRING_DATASOURCE_PASSWORD=root
+      - GEMINI_ENABLED=${GEMINI_ENABLED:-true}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-1.5-flash}
+      - GEMINI_TIMEOUT_SECONDS=${GEMINI_TIMEOUT_SECONDS:-8}
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
       - EUREKA_ENABLED=true
       - JAVA_TOOL_OPTIONS=-Xmx512m

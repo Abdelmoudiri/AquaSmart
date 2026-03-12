@@ -2,6 +2,7 @@ package com.aquasmart.irrigationservice.service.impl;
 
 import com.aquasmart.irrigationservice.client.WeatherClient;
 import com.aquasmart.irrigationservice.dto.IrrigationRecommendation;
+import com.aquasmart.irrigationservice.service.ai.GeminiRecommendationClient;
 import com.aquasmart.irrigationservice.service.SmartIrrigationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,7 @@ import java.util.Map;
 public class SmartIrrigationServiceImpl implements SmartIrrigationService {
     
     private final WeatherClient weatherClient;
+    private final GeminiRecommendationClient geminiRecommendationClient;
     
     @Value("${irrigation.defaults.min-soil-moisture:30.0}")
     private Double minSoilMoisture;
@@ -132,7 +134,7 @@ public class SmartIrrigationServiceImpl implements SmartIrrigationService {
         int recommendedDuration = recommendedWaterAmount != null ? 
                 (int) Math.ceil(recommendedWaterAmount / 10) : 30;
         
-        return IrrigationRecommendation.builder()
+        IrrigationRecommendation baseRecommendation = IrrigationRecommendation.builder()
                 .parcelId(parcelId)
                 .farmId(farmId)
                 .shouldIrrigate(shouldIrrigate)
@@ -152,6 +154,8 @@ public class SmartIrrigationServiceImpl implements SmartIrrigationService {
                 .reasons(reasons)
                 .warnings(warnings)
                 .build();
+
+            return geminiRecommendationClient.applyOn(baseRecommendation);
     }
     
     @Override

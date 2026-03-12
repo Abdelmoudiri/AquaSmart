@@ -51,6 +51,13 @@ irrigation:
     wind-threshold-kmh: 25.0
     temp-threshold-max: 35.0
 
+ai:
+  gemini:
+    enabled: ${GEMINI_ENABLED:false}
+    api-key: ${GEMINI_API_KEY:}
+    model: ${GEMINI_MODEL:gemini-1.5-flash}
+    timeout-seconds: ${GEMINI_TIMEOUT_SECONDS:8}
+
 logging:
   level:
     com.aquasmart.irrigationservice: DEBUG
