@@ -26,6 +26,9 @@ export interface Parcel {
   active?: boolean;
   latitude?: number;
   longitude?: number;
+  currentMoisture?: number;
+  optimalMoistureMin?: number;
+  optimalMoistureMax?: number;
   description?: string;
   crops?: Crop[];
 }

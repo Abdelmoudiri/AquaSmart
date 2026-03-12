@@ -222,7 +222,7 @@ import { NavbarComponent } from '../../../core/components/navbar/navbar.componen
                 </div>
 
                 <!-- Reasons -->
-                <div *ngIf="recommendation.reasons?.length" class="mb-1">
+                <div *ngIf="recommendation.reasons.length" class="mb-1">
                   <p class="text-gray-500 text-xs mb-1">Raisons :</p>
                   <ul class="space-y-1">
                     <li *ngFor="let r of recommendation.reasons" class="text-xs text-gray-700 flex gap-1">
@@ -232,7 +232,7 @@ import { NavbarComponent } from '../../../core/components/navbar/navbar.componen
                 </div>
 
                 <!-- Warnings -->
-                <div *ngIf="recommendation.warnings?.length">
+                <div *ngIf="recommendation.warnings.length">
                   <p class="text-amber-600 text-xs mb-1">⚠️ Avertissements :</p>
                   <ul class="space-y-1">
                     <li *ngFor="let w of recommendation.warnings" class="text-xs text-amber-700 flex gap-1">
@@ -368,6 +368,7 @@ export class FarmDetailComponent implements OnInit {
 
     const lat = parcel.latitude ?? this.farm.latitude;
     const lon = parcel.longitude ?? this.farm.longitude;
+    const soilMoisture = parcel.currentMoisture;
 
     if (!lat || !lon) {
       this.recommendationError = 'Coordonnées GPS manquantes pour cette parcelle.';
@@ -379,7 +380,7 @@ export class FarmDetailComponent implements OnInit {
     this.recommendation = null;
     this.recommendationError = '';
 
-    this.irrigationService.getRecommendation(parcel.id, this.farm.id, lat, lon).subscribe({
+    this.irrigationService.getRecommendation(parcel.id, this.farm.id, lat, lon, soilMoisture).subscribe({
       next: (rec) => {
         this.recommendation = rec;
         this.loadingRecommendation = null;

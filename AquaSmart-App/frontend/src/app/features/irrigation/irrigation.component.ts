@@ -108,17 +108,21 @@ import { NavbarComponent } from '../../core/components/navbar/navbar.component';
               
               <div *ngIf="recommendation" class="mt-4 p-4 bg-blue-50 rounded-lg">
                 <div class="flex items-center gap-2 mb-2">
-                  <span class="text-2xl">{{ recommendation.shouldIrrigate ? '💧' : '☀️' }}</span>
+                  <span class="text-2xl">{{ hasInsufficientData() ? '⚠️' : (recommendation.shouldIrrigate ? '💧' : '☀️') }}</span>
                   <span class="font-medium" 
-                        [class.text-blue-700]="recommendation.shouldIrrigate"
-                        [class.text-orange-600]="!recommendation.shouldIrrigate">
-                    {{ recommendation.shouldIrrigate ? 'Irrigation recommandée' : 'Pas nécessaire' }}
+                        [class.text-blue-700]="recommendation.shouldIrrigate && !hasInsufficientData()"
+                        [class.text-orange-600]="!recommendation.shouldIrrigate && !hasInsufficientData()"
+                        [class.text-amber-700]="hasInsufficientData()">
+                    {{ hasInsufficientData() ? 'Données insuffisantes' : (recommendation.shouldIrrigate ? 'Irrigation recommandée' : 'Pas nécessaire') }}
                   </span>
                 </div>
-                <p class="text-sm text-gray-600">{{ recommendation.reason }}</p>
+                <p *ngIf="recommendation.reasons.length" class="text-sm text-gray-600">{{ recommendation.reasons[0] }}</p>
+                <div *ngIf="recommendation.warnings.length" class="mt-2 text-xs text-amber-700">
+                  {{ recommendation.warnings[0] }}
+                </div>
                 <div *ngIf="recommendation.shouldIrrigate" class="mt-2 text-sm">
                   <p><strong>Eau:</strong> {{ recommendation.recommendedWaterAmount }}L</p>
-                  <p><strong>Durée:</strong> {{ recommendation.recommendedDuration }}min</p>
+                  <p><strong>Durée:</strong> {{ recommendation.recommendedDurationMinutes }}min</p>
                 </div>
               </div>
             </div>
@@ -348,14 +352,17 @@ export class IrrigationComponent implements OnInit {
   getRecommendation() {
     if (!this.recommendationParcelId || !this.selectedFarm) return;
 
-    const lat = this.selectedFarm.latitude || 31.63;
-    const lon = this.selectedFarm.longitude || -8.0;
+    const parcel = this.selectedFarm.parcels?.find(p => p.id === this.recommendationParcelId);
+    const lat = parcel?.latitude ?? this.selectedFarm.latitude ?? 31.63;
+    const lon = parcel?.longitude ?? this.selectedFarm.longitude ?? -8.0;
+    const soilMoisture = parcel?.currentMoisture;
 
     this.irrigationService.getRecommendation(
       this.recommendationParcelId,
       this.selectedFarm.id,
       lat,
-      lon
+      lon,
+      soilMoisture
     ).subscribe({
       next: (rec) => {
         this.recommendation = rec;
@@ -365,6 +372,12 @@ export class IrrigationComponent implements OnInit {
         console.error(err);
       }
     });
+  }
+
+  hasInsufficientData(): boolean {
+    return !!this.recommendation?.warnings?.some(w =>
+      w.includes('Weather data unavailable') || w.includes('No soil moisture data available')
+    );
   }
 
   createSchedule() {
