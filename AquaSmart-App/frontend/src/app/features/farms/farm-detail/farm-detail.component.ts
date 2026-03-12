@@ -4,9 +4,11 @@ import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { FarmService } from '../../../core/services/farm.service';
 import { WeatherService } from '../../../core/services/weather.service';
 import { AlertService } from '../../../core/services/alert.service';
+import { IrrigationService } from '../../../core/services/irrigation.service';
 import { Farm, Parcel } from '../../../core/models/farm.model';
 import { CurrentWeather } from '../../../core/models/weather.model';
 import { AlertSummary } from '../../../core/models/alert.model';
+import { IrrigationRecommendation } from '../../../core/models/irrigation.model';
 import { NavbarComponent } from '../../../core/components/navbar/navbar.component';
 
 @Component({
@@ -163,6 +165,93 @@ import { NavbarComponent } from '../../../core/components/navbar/navbar.componen
                    class="text-teal-600 text-sm hover:underline">
                   Irrigation
                 </a>
+                <button (click)="getRecommendation(parcel)"
+                        class="text-indigo-600 text-sm hover:underline ml-auto flex items-center gap-1"
+                        [disabled]="loadingRecommendation === parcel.id">
+                  <span *ngIf="loadingRecommendation !== parcel.id">🤖 Obtenir conseil</span>
+                  <span *ngIf="loadingRecommendation === parcel.id" class="text-gray-400">Analyse...</span>
+                </button>
+              </div>
+
+              <!-- Recommendation Panel -->
+              <div *ngIf="recommendation && recommendation.parcelId === parcel.id"
+                   class="mt-3 rounded-lg border p-3 text-sm"
+                   [class.border-green-300]="recommendation.shouldIrrigate"
+                   [class.bg-green-50]="recommendation.shouldIrrigate"
+                   [class.border-blue-300]="!recommendation.shouldIrrigate"
+                   [class.bg-blue-50]="!recommendation.shouldIrrigate">
+                
+                <!-- Header -->
+                <div class="flex justify-between items-center mb-2">
+                  <div class="flex items-center gap-2 font-semibold"
+                       [class.text-green-700]="recommendation.shouldIrrigate"
+                       [class.text-blue-700]="!recommendation.shouldIrrigate">
+                    <span>{{ recommendation.shouldIrrigate ? '💧 Irrigation recommandée' : '✅ Pas d\'irrigation nécessaire' }}</span>
+                    <span class="text-xs font-normal px-2 py-0.5 rounded-full"
+                          [class.bg-green-200]="recommendation.shouldIrrigate"
+                          [class.bg-blue-200]="!recommendation.shouldIrrigate">
+                      Confiance : {{ recommendation.confidenceScore }}%
+                    </span>
+                  </div>
+                  <button (click)="recommendation = null" class="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                </div>
+
+                <!-- Key metrics -->
+                <div class="grid grid-cols-2 gap-2 mb-2">
+                  <div class="bg-white rounded p-2 text-center">
+                    <p class="text-gray-500 text-xs">Durée recommandée</p>
+                    <p class="font-bold text-gray-800">{{ recommendation.recommendedDurationMinutes }} min</p>
+                  </div>
+                  <div class="bg-white rounded p-2 text-center">
+                    <p class="text-gray-500 text-xs">Quantité d'eau</p>
+                    <p class="font-bold text-gray-800">{{ recommendation.recommendedWaterAmount | number:'1.0-0' }} L</p>
+                  </div>
+                </div>
+
+                <!-- Conditions -->
+                <div *ngIf="recommendation.conditions" class="grid grid-cols-3 gap-1 mb-2 text-xs text-gray-600">
+                  <span *ngIf="recommendation.conditions.temperature !== undefined">🌡️ {{ recommendation.conditions.temperature }}°C</span>
+                  <span *ngIf="recommendation.conditions.humidity !== undefined">💦 {{ recommendation.conditions.humidity }}%</span>
+                  <span *ngIf="recommendation.conditions.soilMoisture !== undefined">🌱 Sol {{ recommendation.conditions.soilMoisture }}%</span>
+                </div>
+
+                <!-- Optimal time -->
+                <div class="bg-white rounded p-2 mb-2 text-xs">
+                  <span class="text-gray-500">⏰ Heure optimale : </span>
+                  <span class="font-medium text-gray-800">{{ recommendation.optimalStartTime | date:'HH:mm' }}</span>
+                </div>
+
+                <!-- Reasons -->
+                <div *ngIf="recommendation.reasons?.length" class="mb-1">
+                  <p class="text-gray-500 text-xs mb-1">Raisons :</p>
+                  <ul class="space-y-1">
+                    <li *ngFor="let r of recommendation.reasons" class="text-xs text-gray-700 flex gap-1">
+                      <span>•</span><span>{{ r }}</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <!-- Warnings -->
+                <div *ngIf="recommendation.warnings?.length">
+                  <p class="text-amber-600 text-xs mb-1">⚠️ Avertissements :</p>
+                  <ul class="space-y-1">
+                    <li *ngFor="let w of recommendation.warnings" class="text-xs text-amber-700 flex gap-1">
+                      <span>•</span><span>{{ w }}</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <!-- Error message -->
+                <div *ngIf="recommendationError && recommendation.parcelId === parcel.id"
+                     class="text-red-600 text-xs mt-1">
+                  {{ recommendationError }}
+                </div>
+              </div>
+
+              <!-- Recommendation error (no result) -->
+              <div *ngIf="recommendationError && loadingRecommendation !== parcel.id && (!recommendation || recommendation.parcelId !== parcel.id)"
+                   class="mt-2 bg-red-50 text-red-600 rounded p-2 text-xs">
+                {{ recommendationError }}
               </div>
             </div>
           </div>
@@ -177,15 +266,19 @@ export class FarmDetailComponent implements OnInit {
   private farmService = inject(FarmService);
   private weatherService = inject(WeatherService);
   private alertService = inject(AlertService);
+  private irrigationService = inject(IrrigationService);
 
   farm: Farm | null = null;
   weather: CurrentWeather | null = null;
   alertSummary: AlertSummary | null = null;
-  
+  recommendation: IrrigationRecommendation | null = null;
+
   loading = true;
   weatherLoading = false;
   alertsLoading = false;
+  loadingRecommendation: number | null = null;
   error = '';
+  recommendationError = '';
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('farmId') || this.route.snapshot.paramMap.get('id');
@@ -268,5 +361,34 @@ export class FarmDetailComponent implements OnInit {
         }
       });
     }
+  }
+
+  getRecommendation(parcel: Parcel) {
+    if (!this.farm) return;
+
+    const lat = parcel.latitude ?? this.farm.latitude;
+    const lon = parcel.longitude ?? this.farm.longitude;
+
+    if (!lat || !lon) {
+      this.recommendationError = 'Coordonnées GPS manquantes pour cette parcelle.';
+      this.recommendation = null;
+      return;
+    }
+
+    this.loadingRecommendation = parcel.id;
+    this.recommendation = null;
+    this.recommendationError = '';
+
+    this.irrigationService.getRecommendation(parcel.id, this.farm.id, lat, lon).subscribe({
+      next: (rec) => {
+        this.recommendation = rec;
+        this.loadingRecommendation = null;
+      },
+      error: (err) => {
+        this.recommendationError = 'Impossible d\'obtenir le conseil. Vérifiez que le service d\'irrigation est disponible.';
+        this.loadingRecommendation = null;
+        console.error(err);
+      }
+    });
   }
 }
