@@ -1,0 +1,19 @@
+# Fichiers externes (documentation/guides) - sauf README
+Guide-Realisation-Step-by-Step.md
+technique-aquasmart.md
+technique.md
+AquaSmart-Docs/
+
+# IDE
+.vscode/
+.idea/
+
+# Build
+**/target/
+**/node_modules/
+**/dist/
+**/.mvn/
+
+# OS
+.DS_Store
+*.swp
