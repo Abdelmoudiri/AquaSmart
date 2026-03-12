@@ -92,6 +92,8 @@ services:
       - "8083:8083"
     environment:
       - OPENWEATHERMAP_API_KEY=${OPENWEATHERMAP_API_KEY}
+      - OPENWEATHER_API_KEY=${OPENWEATHERMAP_API_KEY}
+      - PORT=8083
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
       - EUREKA_ENABLED=true
       - SPRING_DATA_REDIS_HOST=redis
