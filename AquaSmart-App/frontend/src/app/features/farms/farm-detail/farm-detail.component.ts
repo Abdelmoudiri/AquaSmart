@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { FarmService } from '../../../core/services/farm.service';
@@ -155,6 +155,12 @@ import { NavbarComponent } from '../../../core/components/navbar/navbar.componen
                 <p>Surface: {{ parcel.area }} ha</p>
                 <p>Type de sol: {{ parcel.soilType }}</p>
                 <p>Irrigation: {{ parcel.irrigationType }}</p>
+                <p>
+                  Humidité sol:
+                  <span class="font-medium text-gray-800">
+                    {{ parcel.currentMoisture !== undefined ? (parcel.currentMoisture + '%') : 'N/A' }}
+                  </span>
+                </p>
               </div>
               <div class="flex gap-2 mt-3 pt-3 border-t">
                 <a [routerLink]="['/farms', farm.id, 'parcels', parcel.id]" 
@@ -260,7 +266,7 @@ import { NavbarComponent } from '../../../core/components/navbar/navbar.componen
     </div>
   `
 })
-export class FarmDetailComponent implements OnInit {
+export class FarmDetailComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private farmService = inject(FarmService);
@@ -279,11 +285,19 @@ export class FarmDetailComponent implements OnInit {
   loadingRecommendation: number | null = null;
   error = '';
   recommendationError = '';
+  private parcelsRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('farmId') || this.route.snapshot.paramMap.get('id');
     if (id) {
       this.loadFarm(+id);
+    }
+  }
+
+  ngOnDestroy() {
+    if (this.parcelsRefreshTimer) {
+      clearInterval(this.parcelsRefreshTimer);
+      this.parcelsRefreshTimer = null;
     }
   }
 
@@ -293,6 +307,7 @@ export class FarmDetailComponent implements OnInit {
         this.farm = farm;
         this.loading = false;
         this.loadParcels(id);
+        this.startParcelsRefresh(id);
         this.loadWeather();
         this.loadAlerts();
       },
@@ -302,6 +317,16 @@ export class FarmDetailComponent implements OnInit {
         console.error(err);
       }
     });
+  }
+
+  private startParcelsRefresh(farmId: number) {
+    if (this.parcelsRefreshTimer) {
+      clearInterval(this.parcelsRefreshTimer);
+    }
+
+    this.parcelsRefreshTimer = setInterval(() => {
+      this.loadParcels(farmId);
+    }, 15000);
   }
 
   loadParcels(farmId: number) {
@@ -413,6 +438,13 @@ export class FarmDetailComponent implements OnInit {
       return max;
     }
 
-    return undefined;
+    const soilTypeDefaults: Record<string, number> = {
+      CLAY: 55,
+      LOAMY: 45,
+      SILTY: 50,
+      SANDY: 30
+    };
+
+    return soilTypeDefaults[parcel.soilType?.toUpperCase() ?? ''];
   }
 }

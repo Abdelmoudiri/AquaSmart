@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
@@ -214,7 +214,7 @@ import { NavbarComponent } from '../../core/components/navbar/navbar.component';
     </div>
   `
 })
-export class IrrigationComponent implements OnInit {
+export class IrrigationComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private irrigationService = inject(IrrigationService);
   private farmService = inject(FarmService);
@@ -245,6 +245,7 @@ export class IrrigationComponent implements OnInit {
     waterAmount: 100,
     frequency: 'DAILY'
   };
+  private parcelsRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
   ngOnInit() {
     this.loadFarms();
@@ -255,6 +256,13 @@ export class IrrigationComponent implements OnInit {
         // TODO: Load farm for this parcel
       }
     });
+  }
+
+  ngOnDestroy() {
+    if (this.parcelsRefreshTimer) {
+      clearInterval(this.parcelsRefreshTimer);
+      this.parcelsRefreshTimer = null;
+    }
   }
 
   loadFarms() {
@@ -284,6 +292,7 @@ export class IrrigationComponent implements OnInit {
         this.selectedFarm = farm;
         // Charger les parcelles séparément car l'API ne les inclut pas
         this.loadParcels(this.selectedFarmId!);
+        this.startParcelsRefresh(this.selectedFarmId!);
         this.loadSchedules();
         this.loadInProgressEvents();
       }
@@ -301,6 +310,16 @@ export class IrrigationComponent implements OnInit {
         console.error('Error loading parcels:', err);
       }
     });
+  }
+
+  private startParcelsRefresh(farmId: number) {
+    if (this.parcelsRefreshTimer) {
+      clearInterval(this.parcelsRefreshTimer);
+    }
+
+    this.parcelsRefreshTimer = setInterval(() => {
+      this.loadParcels(farmId);
+    }, 15000);
   }
 
   loadSchedules() {
@@ -394,7 +413,14 @@ export class IrrigationComponent implements OnInit {
       return max;
     }
 
-    return undefined;
+    const soilTypeDefaults: Record<string, number> = {
+      CLAY: 55,
+      LOAMY: 45,
+      SILTY: 50,
+      SANDY: 30
+    };
+
+    return soilTypeDefaults[parcel.soilType?.toUpperCase() ?? ''];
   }
 
   hasInsufficientData(): boolean {

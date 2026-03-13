@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
+import { Observable, of, tap } from 'rxjs';
 import { 
   IrrigationSchedule, 
   IrrigationEvent, 
@@ -110,7 +110,11 @@ export class IrrigationService {
       params = params.set('soilMoisture', soilMoisture);
     }
 
-    return this.http.get<IrrigationRecommendation>(`${API_URL}/recommendation`, { params });
+    return this.http.get<IrrigationRecommendation>(`${API_URL}/recommendation`, { params }).pipe(
+      tap((response) => {
+        console.log('Backend irrigation recommendation response:', response);
+      })
+    );
   }
 
   // ========== STATISTIQUES ==========
