@@ -162,6 +162,29 @@ import { NavbarComponent } from '../../../core/components/navbar/navbar.componen
                   </span>
                 </p>
               </div>
+
+              <div class="mt-3 rounded-md bg-gray-50 p-2">
+                <div class="flex items-center justify-between text-[11px] text-gray-500 mb-1">
+                  <span>Évolution humidité</span>
+                  <span *ngIf="getLatestMoisture(parcel.id) !== null">Dernière: {{ getLatestMoisture(parcel.id) }}%</span>
+                </div>
+                <svg viewBox="0 0 220 56" class="w-full h-14">
+                  <polyline *ngIf="getMoistureChartPoints(parcel.id)"
+                            [attr.points]="getMoistureChartPoints(parcel.id)"
+                            fill="none"
+                            stroke="#0ea5e9"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"></polyline>
+                  <text *ngIf="!getMoistureChartPoints(parcel.id)"
+                        x="8"
+                        y="30"
+                        class="fill-gray-400 text-[10px]">
+                    En attente de mesures...
+                  </text>
+                </svg>
+              </div>
+
               <div class="flex gap-2 mt-3 pt-3 border-t">
                 <a [routerLink]="['/farms', farm.id, 'parcels', parcel.id]" 
                    class="text-primary text-sm hover:underline">
@@ -286,6 +309,8 @@ export class FarmDetailComponent implements OnInit, OnDestroy {
   error = '';
   recommendationError = '';
   private parcelsRefreshTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly maxHistoryPoints = 20;
+  moistureHistoryByParcel: Record<number, number[]> = {};
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('farmId') || this.route.snapshot.paramMap.get('id');
@@ -334,12 +359,53 @@ export class FarmDetailComponent implements OnInit, OnDestroy {
       next: (parcels) => {
         if (this.farm) {
           this.farm.parcels = parcels;
+          this.updateMoistureHistory(parcels);
         }
       },
       error: (err) => {
         console.error('Error loading parcels:', err);
       }
     });
+  }
+
+  private updateMoistureHistory(parcels: Parcel[]) {
+    for (const parcel of parcels) {
+      if (typeof parcel.currentMoisture !== 'number') {
+        continue;
+      }
+
+      const nextValue = Math.round(parcel.currentMoisture * 10) / 10;
+      const history = this.moistureHistoryByParcel[parcel.id] ?? [];
+      if (history.length === 0 || history[history.length - 1] !== nextValue) {
+        history.push(nextValue);
+      }
+
+      this.moistureHistoryByParcel[parcel.id] = history.slice(-this.maxHistoryPoints);
+    }
+  }
+
+  getMoistureChartPoints(parcelId: number): string {
+    const values = this.moistureHistoryByParcel[parcelId] ?? [];
+    if (values.length < 2) return '';
+
+    const width = 220;
+    const height = 56;
+    const minValue = Math.min(...values, 0);
+    const maxValue = Math.max(...values, 100);
+    const range = Math.max(1, maxValue - minValue);
+
+    return values
+      .map((value, index) => {
+        const x = (index / (values.length - 1)) * width;
+        const y = height - ((value - minValue) / range) * height;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      })
+      .join(' ');
+  }
+
+  getLatestMoisture(parcelId: number): number | null {
+    const values = this.moistureHistoryByParcel[parcelId] ?? [];
+    return values.length ? values[values.length - 1] : null;
   }
 
   loadWeather() {
