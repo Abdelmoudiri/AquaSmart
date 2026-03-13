@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import csv
 import json
 import random
 import sys
@@ -126,6 +127,52 @@ def print_cycle(parcel: dict, weather: dict | None, recommendation: dict, moistu
     print("")
 
 
+def ensure_csv_writer(csv_path: str):
+    file_handle = open(csv_path, "a", newline="", encoding="utf-8")
+    writer = csv.writer(file_handle)
+    if file_handle.tell() == 0:
+        writer.writerow([
+            "timestamp",
+            "farmId",
+            "parcelId",
+            "parcelName",
+            "soilType",
+            "soilMoisture",
+            "temperature",
+            "humidity",
+            "windSpeed",
+            "shouldIrrigate",
+            "recommendedWaterAmount",
+            "recommendedDurationMinutes",
+            "confidenceScore",
+            "reasons",
+            "warnings",
+        ])
+        file_handle.flush()
+    return file_handle, writer
+
+
+def append_csv_row(writer, file_handle, farm_id: int, parcel: dict, weather: dict | None, recommendation: dict, moisture: float):
+    writer.writerow([
+        datetime.now().isoformat(timespec="seconds"),
+        farm_id,
+        parcel.get("id"),
+        parcel.get("name", ""),
+        parcel.get("soilType", ""),
+        moisture,
+        as_float(weather, "temperature"),
+        as_float(weather, "humidity"),
+        as_float(weather, "windSpeed"),
+        recommendation.get("shouldIrrigate"),
+        recommendation.get("recommendedWaterAmount"),
+        recommendation.get("recommendedDurationMinutes"),
+        recommendation.get("confidenceScore"),
+        " | ".join(recommendation.get("reasons") or []),
+        " | ".join(recommendation.get("warnings") or []),
+    ])
+    file_handle.flush()
+
+
 def normalize_parcel_ids(parcel_ids: str | None) -> list[int]:
     if not parcel_ids:
         return []
@@ -169,6 +216,7 @@ def main():
     parser.add_argument("--interval-seconds", type=int, default=15, help="Seconds between cycles")
     parser.add_argument("--iterations", type=int, default=0, help="Number of cycles, 0 for infinite")
     parser.add_argument("--initial-moisture", type=float, default=None, help="Optional initial soil moisture override")
+    parser.add_argument("--csv-path", default="sensor_history.csv", help="CSV output file path for measurement history")
     args = parser.parse_args()
 
     client = ApiClient(args.base_url)
@@ -200,46 +248,52 @@ def main():
         print("No parcel has usable coordinates. Cannot simulate recommendation flow.", file=sys.stderr)
         return 1
 
+    csv_file, csv_writer = ensure_csv_writer(args.csv_path)
+
     cycle = 0
 
-    while args.iterations == 0 or cycle < args.iterations:
-        cycle += 1
-        for state in parcel_states.values():
-            parcel = state["parcel"]
-            latitude = state["latitude"]
-            longitude = state["longitude"]
+    try:
+        while args.iterations == 0 or cycle < args.iterations:
+            cycle += 1
+            for state in parcel_states.values():
+                parcel = state["parcel"]
+                latitude = state["latitude"]
+                longitude = state["longitude"]
 
-            try:
-                weather = client.get_json("/weather/current", {"lat": latitude, "lon": longitude})
-            except RuntimeError:
-                weather = None
+                try:
+                    weather = client.get_json("/weather/current", {"lat": latitude, "lon": longitude})
+                except RuntimeError:
+                    weather = None
 
-            state["moisture"] = evolve_moisture(state["moisture"], weather)
+                state["moisture"] = evolve_moisture(state["moisture"], weather)
 
-            try:
-                client.patch_json(
-                    f"/farms/{args.farm_id}/parcels/{parcel['id']}/moisture",
-                    {"moisture": state['moisture']},
-                )
-                recommendation = client.get_json(
-                    "/irrigation/recommendation",
-                    {
-                        "parcelId": parcel["id"],
-                        "farmId": args.farm_id,
-                        "latitude": latitude,
-                        "longitude": longitude,
-                        "soilMoisture": state["moisture"],
-                    },
-                )
-            except RuntimeError as exc:
-                print(exc, file=sys.stderr)
-                return 1
+                try:
+                    client.patch_json(
+                        f"/farms/{args.farm_id}/parcels/{parcel['id']}/moisture",
+                        {"moisture": state['moisture']},
+                    )
+                    recommendation = client.get_json(
+                        "/irrigation/recommendation",
+                        {
+                            "parcelId": parcel["id"],
+                            "farmId": args.farm_id,
+                            "latitude": latitude,
+                            "longitude": longitude,
+                            "soilMoisture": state["moisture"],
+                        },
+                    )
+                except RuntimeError as exc:
+                    print(exc, file=sys.stderr)
+                    return 1
 
-            print_cycle(parcel, weather, recommendation, state["moisture"])
+                print_cycle(parcel, weather, recommendation, state["moisture"])
+                append_csv_row(csv_writer, csv_file, args.farm_id, parcel, weather, recommendation, state["moisture"])
 
-        if args.iterations != 0 and cycle >= args.iterations:
-            break
-        time.sleep(args.interval_seconds)
+            if args.iterations != 0 and cycle >= args.iterations:
+                break
+            time.sleep(args.interval_seconds)
+    finally:
+        csv_file.close()
 
     return 0
 
