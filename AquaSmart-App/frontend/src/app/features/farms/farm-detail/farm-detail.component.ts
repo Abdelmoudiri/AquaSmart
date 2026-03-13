@@ -368,7 +368,7 @@ export class FarmDetailComponent implements OnInit {
 
     const lat = parcel.latitude ?? this.farm.latitude;
     const lon = parcel.longitude ?? this.farm.longitude;
-    const soilMoisture = parcel.currentMoisture;
+    const soilMoisture = this.estimateSoilMoisture(parcel);
 
     if (!lat || !lon) {
       this.recommendationError = 'Coordonnées GPS manquantes pour cette parcelle.';
@@ -391,5 +391,28 @@ export class FarmDetailComponent implements OnInit {
         console.error(err);
       }
     });
+  }
+
+  private estimateSoilMoisture(parcel: Parcel): number | undefined {
+    if (typeof parcel.currentMoisture === 'number') {
+      return parcel.currentMoisture;
+    }
+
+    const min = parcel.optimalMoistureMin;
+    const max = parcel.optimalMoistureMax;
+
+    if (typeof min === 'number' && typeof max === 'number') {
+      return Math.round(((min + max) / 2) * 10) / 10;
+    }
+
+    if (typeof min === 'number') {
+      return min;
+    }
+
+    if (typeof max === 'number') {
+      return max;
+    }
+
+    return undefined;
   }
 }
