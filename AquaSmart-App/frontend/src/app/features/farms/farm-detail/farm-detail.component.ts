@@ -215,7 +215,7 @@ import { NavbarComponent } from '../../../core/components/navbar/navbar.componen
                   <div class="flex items-center gap-2 font-semibold"
                        [class.text-green-700]="recommendation.shouldIrrigate"
                        [class.text-blue-700]="!recommendation.shouldIrrigate">
-                    <span>{{ recommendation.shouldIrrigate ? '💧 Irrigation recommandée' : '✅ Pas d\'irrigation nécessaire' }}</span>
+                    <span>{{ getRecommendationDecisionLabel(recommendation.shouldIrrigate) }}</span>
                     <span class="text-xs font-normal px-2 py-0.5 rounded-full"
                           [class.bg-green-200]="recommendation.shouldIrrigate"
                           [class.bg-blue-200]="!recommendation.shouldIrrigate">
@@ -406,6 +406,10 @@ export class FarmDetailComponent implements OnInit, OnDestroy {
   getLatestMoisture(parcelId: number): number | null {
     const values = this.moistureHistoryByParcel[parcelId] ?? [];
     return values.length ? values[values.length - 1] : null;
+  }
+
+  getRecommendationDecisionLabel(shouldIrrigate: boolean): string {
+    return shouldIrrigate ? '💧 Irrigation recommandée' : '✅ Pas d’irrigation nécessaire';
   }
 
   loadWeather() {
